@@ -21,15 +21,41 @@ async function deployVotingFixture() {
 }
 
 describe('Voting System', function () {
+  let voting: {
+      read: {
+        owner: () => any;
+        getWinner: () => any;
+        workflowStatus: () => any;
+      };
+      write: {
+        startProposalsRegistration: () => any;
+        endProposalsRegistration: () => any;
+        startVotingSession: () => any;
+        endVotingSession: () => any;
+        registerVoter: (p: any[]) => any;
+        vote: (numbers: number[], p: { account: { address: any } }) => any;
+        registerProposal: (strings: string[]) => any;
+      };
+      getEvents: {
+        WorkflowStatusChange: () => any;
+        ProposalRegistered: () => any;
+      };
+    },
+    owner: { account: { address: any } },
+    addr1: { account: { address: any } },
+    addr2: { account: { address: any } };
+
+  beforeEach(async function () {
+    ({ voting, owner, addr1, addr2 } = await loadFixture(deployVotingFixture));
+  });
+
   it('Should deploy the contract and set the owner', async function () {
-    const { voting, owner } = await loadFixture(deployVotingFixture);
     expect(await voting.read.owner()).to.equal(
       getAddress(owner.account.address),
     );
   });
 
   it('Should return the initial winningProposalId as 0', async function () {
-    const { voting } = await loadFixture(deployVotingFixture);
     await expect(voting.read.getWinner()).to.be.rejectedWith(
       'Votes not tallied yet',
     );
@@ -42,7 +68,6 @@ describe('Voting System', function () {
   //
   describe('Workflow Status', function () {
     it('Should be equal to RegisteringVoters (0)', async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       const workflowStatus = await voting.read.workflowStatus();
       expect(workflowStatus).to.equal(0);
     });
@@ -50,14 +75,12 @@ describe('Voting System', function () {
 
   describe('Proposal Registration', function () {
     it("Can't register a proposal (workflow not started)", async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await expect(
         voting.write.registerProposal(['Proposal 1']),
       ).to.be.rejectedWith('Workflow must be ProposalsRegistrationStarted');
     });
 
     it('Verify startProposalsRegistration Event', async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await voting.write.startProposalsRegistration();
 
       let events = await voting.getEvents.WorkflowStatusChange();
@@ -71,7 +94,6 @@ describe('Voting System', function () {
     });
 
     it("Can't register an empty proposal", async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await voting.write.startProposalsRegistration();
       await expect(voting.write.registerProposal([''])).to.be.rejectedWith(
         "The description can't be empty",
@@ -79,7 +101,6 @@ describe('Voting System', function () {
     });
 
     it("Can't register an existing proposal", async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await voting.write.startProposalsRegistration();
       await voting.write.registerProposal(['Proposal 1']);
       await expect(
@@ -88,14 +109,12 @@ describe('Voting System', function () {
     });
 
     it("Can't stop the registration (workflow not started)", async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await expect(voting.write.endProposalsRegistration()).to.be.rejectedWith(
         'Workflow must be ProposalsRegistrationStarted',
       );
     });
 
     it('Get Event from registerProposal', async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await voting.write.startProposalsRegistration();
 
       await voting.write.registerProposal(['Proposal 1']);
@@ -105,13 +124,13 @@ describe('Voting System', function () {
       expect(events[0].args.proposalId).to.equal(0n);
 
       await voting.write.registerProposal(['Proposal 2']);
+
       events = await voting.getEvents.ProposalRegistered();
       expect(events).to.have.lengthOf(1);
       expect(events[0].args.proposalId).to.equal(1n);
     });
 
     it('Get Event from endProposalsRegistration', async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await voting.write.startProposalsRegistration();
 
       await voting.write.endProposalsRegistration();
@@ -127,24 +146,7 @@ describe('Voting System', function () {
   });
 
   describe('Voting Session', function () {
-    let voting: {
-        write: {
-          startProposalsRegistration: () => any;
-          endProposalsRegistration: () => any;
-          startVotingSession: () => any;
-          endVotingSession: () => any;
-          registerVoter: () => any;
-          vote: () => any;
-          registerProposal: () => any;
-        };
-        getEvents: { WorkflowStatusChange: () => any };
-      },
-      owner: { account: { address: any } },
-      addr1: { account: { address: any } };
-
     beforeEach(async function () {
-      ({ voting, owner, addr1 } = await loadFixture(deployVotingFixture));
-      // await voting.write.registerVoter([addr1]);
       await voting.write.registerVoter([addr1.account.address]);
       await voting.write.startProposalsRegistration();
       await voting.write.registerProposal(['Proposal 1']);
@@ -182,7 +184,7 @@ describe('Voting System', function () {
 
     it('User is not a voter', async function () {
       // the current sender (aka owner) is not a voter
-      const voteCall = voting.write.vote([0]);
+      const voteCall = voting.write.vote([0], { account: owner.account });
       await expect(voteCall).to.be.rejectedWith('Voter is not registered');
     });
 
@@ -204,14 +206,13 @@ describe('Voting System', function () {
     it('Voter has already voted', async function () {
       await voting.write.startVotingSession();
       voting.write.vote([0], { account: addr1.account });
-      const vote = voting.write.vote([0], { account: addr1.account });
-      await expect(vote).to.be.rejectedWith('Voter has already voted');
+      const voteCall = voting.write.vote([0], { account: addr1.account });
+      await expect(voteCall).to.be.rejectedWith('Voter has already voted');
     });
   });
 
   describe('Events', function () {
     it('Should emit an event on VoterRegistered', async function () {
-      const { voting, addr1 } = await loadFixture(deployVotingFixture);
       await voting.write.registerVoter([addr1.account.address]);
       const events = await voting.getEvents.VoterRegistered();
       expect(events).to.have.lengthOf(1);
@@ -221,7 +222,6 @@ describe('Voting System', function () {
     });
 
     it('Should emit an event on WorkflowStatusChange', async function () {
-      const { voting } = await loadFixture(deployVotingFixture);
       await voting.write.startProposalsRegistration();
       const events = await voting.getEvents.WorkflowStatusChange();
       expect(events).to.have.lengthOf(1);
@@ -239,7 +239,6 @@ describe('Voting System', function () {
   describe('Errors', function () {
     it('A voter is already registered', async function () {
       // First call, new instance of the SC
-      const { voting, addr1 } = await loadFixture(deployVotingFixture);
       // Register the voter
       await voting.write.registerVoter([addr1.account.address]);
       // I am already registered -> rejected
