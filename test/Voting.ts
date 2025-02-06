@@ -39,6 +39,76 @@ describe('Voting System', function () {
     });
   });
 
+  describe('Proposal Registration', function () {
+    it("Can't register a proposal (workflow not started)", async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await expect(
+        voting.write.registerProposal(['Proposal 1']),
+      ).to.be.rejectedWith('Workflow must be ProposalsRegistrationStarted');
+    });
+
+    it('Verify startProposalsRegistration Event', async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await voting.write.startProposalsRegistration();
+
+      let events = await voting.getEvents.WorkflowStatusChange();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.previousStatus).to.equal(0);
+      expect(events[0].args.newStatus).to.equal(1);
+    });
+
+    it("Can't register an empty proposal", async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await voting.write.startProposalsRegistration();
+      await expect(voting.write.registerProposal([''])).to.be.rejectedWith(
+        "The description can't be empty",
+      );
+    });
+
+    it("Can't register an existing proposal", async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await voting.write.startProposalsRegistration();
+      await voting.write.registerProposal(['Proposal 1']);
+      await expect(
+        voting.write.registerProposal(['Proposal 1']),
+      ).to.be.rejectedWith('Proposal already exists');
+    });
+
+    it("Can't stop the registration (workflow not started)", async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await expect(voting.write.endProposalsRegistration()).to.be.rejectedWith(
+        'Workflow must be ProposalsRegistrationStarted',
+      );
+    });
+
+    it('Get Event from registerProposal', async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await voting.write.startProposalsRegistration();
+
+      await voting.write.registerProposal(['Proposal 1']);
+
+      let events = await voting.getEvents.ProposalRegistered();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.proposalId).to.equal(0n);
+
+      await voting.write.registerProposal(['Proposal 2']);
+      events = await voting.getEvents.ProposalRegistered();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.proposalId).to.equal(1n);
+    });
+
+    it('Get Event from endProposalsRegistration', async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await voting.write.startProposalsRegistration();
+
+      await voting.write.endProposalsRegistration();
+      let events = await voting.getEvents.WorkflowStatusChange();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.previousStatus).to.equal(1);
+      expect(events[0].args.newStatus).to.equal(2);
+    });
+  });
+
   describe('Events', function () {
     it('Should emit an event on VoterRegistered', async function () {
       const { voting, addr1 } = await loadFixture(deployVotingFixture);

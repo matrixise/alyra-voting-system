@@ -25,9 +25,12 @@ contract Voting is Ownable {
         VotesTallied
     }
 
-    uint winningProposalId;
+    uint private winningProposalId;
     WorkflowStatus public workflowStatus;
-    mapping(address => Voter) voters;
+    mapping(address => Voter) private voters;
+    uint private proposalCount;
+    Proposal[] private proposals;
+    mapping(string => bool) private existingProposals;
 
     event VoterRegistered(address voterAddress);
     event WorkflowStatusChange(
@@ -59,6 +62,24 @@ contract Voting is Ownable {
             WorkflowStatus.RegisteringVoters,
             WorkflowStatus.ProposalsRegistrationStarted
         );
+    }
+
+    function registerProposal(string calldata _description) external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
+            'Workflow must be ProposalsRegistrationStarted'
+        );
+        require(
+            bytes(_description).length > 0,
+            "The description can't be empty"
+        );
+        require(!existingProposals[_description], 'Proposal already exists');
+
+        proposals.push(Proposal(_description, 0));
+        existingProposals[_description] = true;
+        uint proposalId = proposals.length - 1;
+
+        emit ProposalRegistered(proposalId);
     }
 
     function endProposalsRegistration() external onlyOwner {
