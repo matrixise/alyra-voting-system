@@ -128,18 +128,26 @@ describe('Voting System', function () {
 
   describe('Voting Session', function () {
     let voting: {
-      write: {
-        startProposalsRegistration: () => any;
-        endProposalsRegistration: () => any;
-        startVotingSession: () => any;
-        endVotingSession: () => any;
-      };
-      getEvents: { WorkflowStatusChange: () => any };
-    };
+        write: {
+          startProposalsRegistration: () => any;
+          endProposalsRegistration: () => any;
+          startVotingSession: () => any;
+          endVotingSession: () => any;
+          registerVoter: () => any;
+          vote: () => any;
+          registerProposal: () => any;
+        };
+        getEvents: { WorkflowStatusChange: () => any };
+      },
+      owner: { account: { address: any } },
+      addr1: { account: { address: any } };
 
     beforeEach(async function () {
-      ({ voting } = await loadFixture(deployVotingFixture));
+      ({ voting, owner, addr1 } = await loadFixture(deployVotingFixture));
+      // await voting.write.registerVoter([addr1]);
+      await voting.write.registerVoter([addr1.account.address]);
       await voting.write.startProposalsRegistration();
+      await voting.write.registerProposal(['Proposal 1']);
       await voting.write.endProposalsRegistration();
     });
 
@@ -171,7 +179,36 @@ describe('Voting System', function () {
         WorkflowStatus.VotingSessionEnded,
       );
     });
+
+    it('User is not a voter', async function () {
+      // the current sender (aka owner) is not a voter
+      const voteCall = voting.write.vote([0]);
+      await expect(voteCall).to.be.rejectedWith('Voter is not registered');
+    });
+
+    it('User is a voter', async function () {
+      // addr1 is a voter
+      const voteCall = voting.write.vote([0], { account: addr1.account });
+      await expect(voteCall).to.be.rejectedWith(
+        'Workflow must be VotingSessionStarted',
+      );
+    });
+
+    it('Voter votes for an invalid proposal', async function () {
+      // addr1 is a voter
+      await voting.write.startVotingSession();
+      const voteCall = voting.write.vote([20], { account: addr1.account });
+      await expect(voteCall).to.be.rejectedWith('Invalid proposal');
+    });
+
+    it('Voter has already voted', async function () {
+      await voting.write.startVotingSession();
+      voting.write.vote([0], { account: addr1.account });
+      const vote = voting.write.vote([0], { account: addr1.account });
+      await expect(vote).to.be.rejectedWith('Voter has already voted');
+    });
   });
+
   describe('Events', function () {
     it('Should emit an event on VoterRegistered', async function () {
       const { voting, addr1 } = await loadFixture(deployVotingFixture);

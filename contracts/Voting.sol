@@ -40,6 +40,11 @@ contract Voting is Ownable {
     event ProposalRegistered(uint proposalId);
     event Voted(address voter, uint proposalId);
 
+    modifier onlyVoter() {
+        require(voters[msg.sender].isRegistered, 'Voter is not registered');
+        _;
+    }
+
     constructor() Ownable(msg.sender) {}
 
     function registerVoter(address _voter) external onlyOwner {
@@ -105,6 +110,21 @@ contract Voting is Ownable {
             WorkflowStatus.ProposalsRegistrationEnd,
             workflowStatus
         );
+    }
+
+    function vote(uint _proposalId) external onlyVoter {
+        require(
+            workflowStatus == WorkflowStatus.VotingSessionStarted,
+            'Workflow must be VotingSessionStarted'
+        );
+        require(_proposalId < proposals.length, 'Invalid proposal');
+        require(!voters[msg.sender].hasVoted, 'Voter has already voted');
+
+        voters[msg.sender].hasVoted = true;
+        voters[msg.sender].votedProposalId = _proposalId;
+        proposals[_proposalId].voteCount++;
+
+        emit Voted(msg.sender, _proposalId);
     }
 
     function endVotingSession() external onlyOwner {
