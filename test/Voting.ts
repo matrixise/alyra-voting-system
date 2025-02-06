@@ -39,6 +39,7 @@ describe('Voting System', function () {
       getEvents: {
         WorkflowStatusChange: () => any;
         ProposalRegistered: () => any;
+        VoterRegistered: () => any;
       };
     },
     owner: { account: { address: any } },
