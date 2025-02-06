@@ -60,7 +60,7 @@ contract Voting is Ownable {
         workflowStatus = WorkflowStatus.ProposalsRegistrationStarted;
         emit WorkflowStatusChange(
             WorkflowStatus.RegisteringVoters,
-            WorkflowStatus.ProposalsRegistrationStarted
+            workflowStatus
         );
     }
 
@@ -90,7 +90,7 @@ contract Voting is Ownable {
         workflowStatus = WorkflowStatus.ProposalsRegistrationEnd;
         emit WorkflowStatusChange(
             WorkflowStatus.ProposalsRegistrationStarted,
-            WorkflowStatus.ProposalsRegistrationEnd
+            workflowStatus
         );
     }
 
