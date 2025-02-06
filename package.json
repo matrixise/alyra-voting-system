@@ -2,6 +2,8 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "@openzeppelin/contracts": "^5.2.0",
-    "hardhat": "^2.22.18"
+    "hardhat": "^2.22.18",
+    "prettier": "^3.4.2",
+    "prettier-plugin-solidity": "^1.4.2"
   }
 }
