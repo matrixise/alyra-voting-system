@@ -8,7 +8,7 @@ contract Voting is Ownable {
     struct Voter {
         bool isRegistered;
         bool hasVoted;
-        uint votedPropposalId;
+        uint votedProposalId;
     }
 
     struct Proposal {
@@ -90,6 +90,32 @@ contract Voting is Ownable {
         workflowStatus = WorkflowStatus.ProposalsRegistrationEnd;
         emit WorkflowStatusChange(
             WorkflowStatus.ProposalsRegistrationStarted,
+            workflowStatus
+        );
+    }
+
+    function startVotingSession() external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.ProposalsRegistrationEnd,
+            'Workflow must be ProposalsRegistrationEnd'
+        );
+
+        workflowStatus = WorkflowStatus.VotingSessionStarted;
+        emit WorkflowStatusChange(
+            WorkflowStatus.ProposalsRegistrationEnd,
+            workflowStatus
+        );
+    }
+
+    function endVotingSession() external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.VotingSessionStarted,
+            'Workflow must be VotingSessionStarted'
+        );
+
+        workflowStatus = WorkflowStatus.VotingSessionEnded;
+        emit WorkflowStatusChange(
+            WorkflowStatus.VotingSessionStarted,
             workflowStatus
         );
     }
