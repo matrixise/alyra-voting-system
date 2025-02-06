@@ -42,11 +42,35 @@ contract Voting is Ownable {
     function registerVoter(address _voter) external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.RegisteringVoters,
-            'The workflow has to be in Registering mode'
+            'Workflow must be RegisteringVoters'
         );
         require(!voters[_voter].isRegistered, 'Voter already registered');
         voters[_voter].isRegistered = true;
         emit VoterRegistered(_voter);
+    }
+
+    function startProposalsRegistration() external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.RegisteringVoters,
+            'Workflow must be RegisteringVoters'
+        );
+        workflowStatus = WorkflowStatus.ProposalsRegistrationStarted;
+        emit WorkflowStatusChange(
+            WorkflowStatus.RegisteringVoters,
+            WorkflowStatus.ProposalsRegistrationStarted
+        );
+    }
+
+    function endProposalsRegistration() external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
+            'Workflow must be ProposalsRegistrationStarted'
+        );
+        workflowStatus = WorkflowStatus.ProposalsRegistrationEnd;
+        emit WorkflowStatusChange(
+            WorkflowStatus.ProposalsRegistrationStarted,
+            WorkflowStatus.ProposalsRegistrationEnd
+        );
     }
 
     function getWinner() external view returns (uint) {

@@ -49,7 +49,19 @@ describe('Voting System', function () {
         getAddress(addr1.account.address),
       );
     });
-    it('Should emit an event on WorkflowStatusChange');
+
+    it('Should emit an event on WorkflowStatusChange', async function () {
+      const { voting } = await loadFixture(deployVotingFixture);
+      await voting.write.startProposalsRegistration();
+      const events = await voting.getEvents.WorkflowStatusChange();
+      expect(events).to.have.lengthOf(1);
+
+      await voting.write.endProposalsRegistration();
+      const eventsForEndProposal =
+        await voting.getEvents.WorkflowStatusChange();
+      expect(eventsForEndProposal).to.have.lengthOf(1);
+    });
+
     it('Should emit an event on ProposalRegistered');
     it('Should emit an event on Voted');
   });
