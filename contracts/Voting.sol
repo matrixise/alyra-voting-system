@@ -3,6 +3,11 @@ pragma solidity 0.8.28;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 
+/**
+ * @title Voting Smart Contract
+ * @notice Manages a decentralized voting process with proposals and votes.
+ * @dev Implements a structured voting workflow.
+ */
 contract Voting is Ownable {
     struct Voter {
         bool isRegistered;
@@ -44,8 +49,19 @@ contract Voting is Ownable {
         _;
     }
 
+    /**
+     * @notice Deploys the Voting contract and assigns the deployer as the owner.
+     */
     constructor() Ownable(msg.sender) {}
 
+    /**
+     * @notice Registers a new voter.
+     * @dev
+     * - Can only be called by the contract owner.
+     * - The workflow status must be `RegisteringVoters`.
+     * - The voter must not already be registered.
+     * @param _voter Address of the voter to be registered.
+     */
     function registerVoter(address _voter) external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.RegisteringVoters,
@@ -56,6 +72,12 @@ contract Voting is Ownable {
         emit VoterRegistered(_voter);
     }
 
+    /**
+     * @notice Starts the proposal registration phase.
+     * @dev
+     * - Only the owner can start this phase.
+     * - the workflow status must be 'RegisteringVoters'.
+     */
     function startProposalsRegistration() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.RegisteringVoters,
@@ -68,6 +90,15 @@ contract Voting is Ownable {
         );
     }
 
+    /**
+     * @notice Registers a new proposal.
+     * @dev
+     * - Only the owner can register proposals.
+     * - The workflow status must be 'RegisteringVoters'.
+     * - The proposal description can't be empty.
+     * - The proposal description must be unique.
+     * @param _description The description of the proposal.
+     */
     function registerProposal(string calldata _description) external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
@@ -86,6 +117,13 @@ contract Voting is Ownable {
         emit ProposalRegistered(proposalId);
     }
 
+    /**
+     * @notice Ends the proposal registration phase.
+     * @dev
+     * - Only the owner can register proposals.
+     * - The workflow status must be 'ProposalsRegistrationStarted'.
+     * - Emits a {WorkflowStatusChange} event.
+     */
     function endProposalsRegistration() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
@@ -98,6 +136,13 @@ contract Voting is Ownable {
         );
     }
 
+    /**
+     * @notice Starts the voting session.
+     * @dev
+     * - Only the owner can register proposals.
+     * - The workflow status must be 'ProposalsRegistrationEnd'.
+     * - Emits a {WorkflowStatusChange} event.
+     */
     function startVotingSession() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.ProposalsRegistrationEnd,
@@ -111,6 +156,17 @@ contract Voting is Ownable {
         );
     }
 
+    /**
+     * @notice Votes for a proposal.
+     * @dev
+     * - The voter must be registered (`onlyVoter` modifier ensures this).
+     * - The workflow status must be 'VotingSessionStarted'.
+     * - The voting session must be active.
+     * - The proposal ID must be valid.
+     * - The voter must not have already voted.
+     * - Emits {Voted} event.
+     * @param _proposalId The ID of the proposal to vote for.
+     */
     function vote(uint _proposalId) external onlyVoter {
         require(
             workflowStatus == WorkflowStatus.VotingSessionStarted,
@@ -126,6 +182,13 @@ contract Voting is Ownable {
         emit Voted(msg.sender, _proposalId);
     }
 
+    /**
+     * @notice Ends the voting session.
+     * @dev
+     * - Only the owner can register proposals.
+     * - The workflow status must be 'VotingSessionStarted'.
+     * - Emits a {WorkflowStatusChange} event.
+    */
     function endVotingSession() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.VotingSessionStarted,
@@ -139,6 +202,13 @@ contract Voting is Ownable {
         );
     }
 
+    /**
+     * @notice Tally votes and determine the winning proposal.
+     * @dev
+     * - Only the owner can register proposals.
+     * - The workflow status must be 'VotingSessionEnded'.
+     * - Emits a {WorkflowStatusChange} event.
+     */
     function tallyVotes() external onlyOwner {
         // TODO: Handle when ex aequo
         // TODO: Handle when there is no votes...
@@ -164,6 +234,12 @@ contract Voting is Ownable {
         );
     }
 
+    /**
+     * @notice Retrieves the winning proposal.
+     * @dev
+     * - The workflow status must be 'VotesTallied'.
+     * @return The description of the winning proposal.
+     */
     function getWinner() external view returns (string memory) {
         require(
             workflowStatus == WorkflowStatus.VotesTallied,
