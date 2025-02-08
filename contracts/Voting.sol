@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
-import 'hardhat/console.sol';
 
 contract Voting is Ownable {
     struct Voter {
@@ -140,11 +139,36 @@ contract Voting is Ownable {
         );
     }
 
-    function getWinner() external view returns (uint) {
+    function tallyVotes() external onlyOwner {
+        // TODO: Handle when ex aequo
+        // TODO: Handle when there is no votes...
+        require(
+            workflowStatus == WorkflowStatus.VotingSessionEnded,
+            'Workflow must be VotingSessionEnded'
+        );
+
+        uint maxVoteCount = 0;
+
+        for (uint i = 0; i < proposals.length; i++) {
+            if (proposals[i].voteCount > maxVoteCount) {
+                maxVoteCount = proposals[i].voteCount;
+                winningProposalId = i;
+            }
+        }
+
+        workflowStatus = WorkflowStatus.VotesTallied;
+
+        emit WorkflowStatusChange(
+            WorkflowStatus.VotingSessionEnded,
+            workflowStatus
+        );
+    }
+
+    function getWinner() external view returns (string memory) {
         require(
             workflowStatus == WorkflowStatus.VotesTallied,
             'Votes not tallied yet'
         );
-        return winningProposalId;
+        return proposals[winningProposalId].description;
     }
 }

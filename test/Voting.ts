@@ -15,9 +15,9 @@ enum WorkflowStatus {
 }
 
 async function deployVotingFixture() {
-  const [owner, addr1, addr2] = await hre.viem.getWalletClients();
+  const [owner, addr1, addr2, addr3] = await hre.viem.getWalletClients();
   const voting = await hre.viem.deployContract('Voting');
-  return { voting, owner, addr1, addr2 };
+  return { voting, owner, addr1, addr2, addr3 };
 }
 
 describe('Voting System', function () {
@@ -35,6 +35,7 @@ describe('Voting System', function () {
         registerVoter: (p: any[]) => any;
         vote: (numbers: number[], p: { account: { address: any } }) => any;
         registerProposal: (strings: string[]) => any;
+        tallyVotes: () => any;
       };
       getEvents: {
         WorkflowStatusChange: () => any;
@@ -44,10 +45,12 @@ describe('Voting System', function () {
     },
     owner: { account: { address: any } },
     addr1: { account: { address: any } },
-    addr2: { account: { address: any } };
+    addr2: { account: { address: any } },
+    addr3: { account: { address: any } };
 
   beforeEach(async function () {
-    ({ voting, owner, addr1, addr2 } = await loadFixture(deployVotingFixture));
+    ({ voting, owner, addr1, addr2, addr3 } =
+      await loadFixture(deployVotingFixture));
   });
 
   it('Should deploy the contract and set the owner', async function () {
@@ -149,8 +152,11 @@ describe('Voting System', function () {
   describe('Voting Session', function () {
     beforeEach(async function () {
       await voting.write.registerVoter([addr1.account.address]);
+      await voting.write.registerVoter([addr2.account.address]);
+      await voting.write.registerVoter([addr3.account.address]);
       await voting.write.startProposalsRegistration();
       await voting.write.registerProposal(['Proposal 1']);
+      await voting.write.registerProposal(['Proposal 2']);
       await voting.write.endProposalsRegistration();
     });
 
@@ -210,6 +216,28 @@ describe('Voting System', function () {
       const voteCall = voting.write.vote([0], { account: addr1.account });
       await expect(voteCall).to.be.rejectedWith('Voter has already voted');
     });
+
+    it("tallyVote has to be in VotingSessionEnd", async function () {
+      const call = voting.write.tallyVotes();
+      await expect(call).to.be.rejectedWith('Workflow must be VotingSessionEnded');
+    })
+
+    it('Get the winner', async function () {
+      await voting.write.startVotingSession();
+      await voting.write.vote([0], { account: addr1.account });
+      await voting.write.vote([1], { account: addr2.account });
+      await voting.write.vote([1], { account: addr3.account });
+      await voting.write.endVotingSession();
+      await voting.write.tallyVotes();
+
+      const events = await voting.getEvents.WorkflowStatusChange();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.previousStatus).to.equal(
+        WorkflowStatus.VotingSessionEnded,
+      );
+      expect(events[0].args.newStatus).to.equal(WorkflowStatus.VotesTallied);
+      expect(await voting.read.getWinner()).to.equal('Proposal 2');
+    });
   });
 
   describe('Events', function () {
@@ -232,9 +260,6 @@ describe('Voting System', function () {
         await voting.getEvents.WorkflowStatusChange();
       expect(eventsForEndProposal).to.have.lengthOf(1);
     });
-
-    it('Should emit an event on ProposalRegistered');
-    it('Should emit an event on Voted');
   });
 
   describe('Errors', function () {
