@@ -29,10 +29,9 @@ contract Voting is Ownable {
         VotesTallied
     }
 
-    uint private winningProposalId;
+    uint[] private winningProposalIds;
     WorkflowStatus public workflowStatus;
     mapping(address => Voter) private voters;
-    uint private proposalCount;
     Proposal[] private proposals;
     mapping(string => bool) private existingProposals;
 
@@ -75,8 +74,9 @@ contract Voting is Ownable {
     /**
      * @notice Starts the proposal registration phase.
      * @dev
-     * - Only the owner can start this phase.
+     * - Only the owner can start the proposals registration.
      * - the workflow status must be 'RegisteringVoters'.
+     * - Emits a {WorkflowStatusChange} event.
      */
     function startProposalsRegistration() external onlyOwner {
         require(
@@ -93,13 +93,14 @@ contract Voting is Ownable {
     /**
      * @notice Registers a new proposal.
      * @dev
-     * - Only the owner can register proposals.
-     * - The workflow status must be 'RegisteringVoters'.
+     * - Only the voter can register proposals.
+     * - The workflow status must be 'ProposalsRegistrationStarted'.
      * - The proposal description can't be empty.
      * - The proposal description must be unique.
+     * - Emits a {ProposalRegistered} event.
      * @param _description The description of the proposal.
      */
-    function registerProposal(string calldata _description) external onlyOwner {
+    function registerProposal(string calldata _description) external onlyVoter {
         require(
             workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
             'Workflow must be ProposalsRegistrationStarted'
@@ -120,7 +121,7 @@ contract Voting is Ownable {
     /**
      * @notice Ends the proposal registration phase.
      * @dev
-     * - Only the owner can register proposals.
+     * - Only the owner can stop the proposals registration.
      * - The workflow status must be 'ProposalsRegistrationStarted'.
      * - Emits a {WorkflowStatusChange} event.
      */
@@ -188,7 +189,7 @@ contract Voting is Ownable {
      * - Only the owner can register proposals.
      * - The workflow status must be 'VotingSessionStarted'.
      * - Emits a {WorkflowStatusChange} event.
-    */
+     */
     function endVotingSession() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.VotingSessionStarted,
@@ -210,7 +211,6 @@ contract Voting is Ownable {
      * - Emits a {WorkflowStatusChange} event.
      */
     function tallyVotes() external onlyOwner {
-        // TODO: Handle when ex aequo
         // TODO: Handle when there is no votes...
         require(
             workflowStatus == WorkflowStatus.VotingSessionEnded,
@@ -218,11 +218,16 @@ contract Voting is Ownable {
         );
 
         uint maxVoteCount = 0;
+        uint currentVoteCount;
 
         for (uint i = 0; i < proposals.length; i++) {
-            if (proposals[i].voteCount > maxVoteCount) {
-                maxVoteCount = proposals[i].voteCount;
-                winningProposalId = i;
+            currentVoteCount = proposals[i].voteCount;
+            if (currentVoteCount > maxVoteCount) {
+                maxVoteCount = currentVoteCount;
+                delete winningProposalIds;
+                winningProposalIds.push(i);
+            } else if (currentVoteCount == maxVoteCount) {
+                winningProposalIds.push(i);
             }
         }
 
@@ -240,11 +245,11 @@ contract Voting is Ownable {
      * - The workflow status must be 'VotesTallied'.
      * @return The description of the winning proposal.
      */
-    function getWinner() external view returns (string memory) {
+    function getWinnerProposalsIds() external view returns (uint[] memory) {
         require(
             workflowStatus == WorkflowStatus.VotesTallied,
-            'Votes not tallied yet'
+            'Workflow must be VotesTallied'
         );
-        return proposals[winningProposalId].description;
+        return winningProposalIds;
     }
 }
