@@ -131,6 +131,7 @@ contract Voting is Ownable {
             workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
             'Workflow must be ProposalsRegistrationStarted'
         );
+        require(proposals.length > 0, 'At least one proposal');
         workflowStatus = WorkflowStatus.ProposalsRegistrationEnd;
         emit WorkflowStatusChange(
             WorkflowStatus.ProposalsRegistrationStarted,

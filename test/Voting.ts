@@ -150,8 +150,18 @@ describe('Voting System', function () {
       expect(events[0].args.proposalId).to.equal(1n);
     });
 
+    it('At least one proposal', async function () {
+      await voting.write.startProposalsRegistration();
+      await expect(voting.write.endProposalsRegistration()).to.be.rejectedWith(
+        'At least one proposal',
+      );
+    });
+
     it('Get Event from endProposalsRegistration', async function () {
       await voting.write.startProposalsRegistration();
+      await voting.write.registerProposal(['Proposal 1'], {
+        account: addr1.account,
+      });
 
       await voting.write.endProposalsRegistration();
       let events = await voting.getEvents.WorkflowStatusChange();
@@ -298,9 +308,14 @@ describe('Voting System', function () {
     });
 
     it('Should emit an event on WorkflowStatusChange', async function () {
+      await voting.write.registerVoter([addr1.account.address]);
       await voting.write.startProposalsRegistration();
       const events = await voting.getEvents.WorkflowStatusChange();
       expect(events).to.have.lengthOf(1);
+
+      await voting.write.registerProposal(['Proposal 1'], {
+        account: addr1.account,
+      });
 
       await voting.write.endProposalsRegistration();
       const eventsForEndProposal =
