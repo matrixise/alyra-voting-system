@@ -26,6 +26,8 @@ describe('Voting System', function () {
         owner: () => any;
         workflowStatus: () => any;
         getWinnerProposalsIds: () => any;
+        getProposalDescription: (numbers: number[]) => any;
+        proposalHasBeenVoted: (numbers: number[]) => any;
       };
       write: {
         startProposalsRegistration: () => any;
@@ -115,14 +117,29 @@ describe('Voting System', function () {
       ).to.be.rejectedWith("The description can't be empty");
     });
 
-    it("Register a proposal", async function () {
+    it('Register a proposal', async function () {
       await voting.write.startProposalsRegistration();
-      await voting.write.registerProposal(['Proposal 1'], { account: addr1.account });
+      await voting.write.registerProposal(['Proposal 1'], {
+        account: addr1.account,
+      });
 
       const events = await voting.getEvents.ProposalRegistered();
       expect(events).to.have.lengthOf(1);
       expect(events[0].args.proposalId).to.equal(0n);
-    })
+    });
+
+    it('Read the description of a proposal', async function () {
+      await voting.write.startProposalsRegistration();
+      await voting.write.registerProposal(['Proposal 1'], {
+        account: addr1.account,
+      });
+      const events = await voting.getEvents.ProposalRegistered();
+      const proposalId = events[0].args.proposalId;
+      const description = await voting.read.getProposalDescription([
+        proposalId,
+      ]);
+      expect(description).to.equal('Proposal 1');
+    });
 
     it("Can't register an existing proposal", async function () {
       await voting.write.startProposalsRegistration();
@@ -243,6 +260,15 @@ describe('Voting System', function () {
       expect(events[0].args.newStatus).to.equal(
         WorkflowStatus.VotingSessionEnded,
       );
+    });
+
+    it('Proposal has been voted', async function () {
+      await voting.write.startVotingSession();
+      await voting.write.vote([0], { account: addr1.account });
+      await voting.write.endVotingSession();
+
+      const hasBeenVoted = await voting.read.proposalHasBeenVoted([0]);
+      expect(hasBeenVoted).to.equal(true);
     });
 
     it('User is not a voter', async function () {

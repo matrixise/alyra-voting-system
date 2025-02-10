@@ -31,7 +31,7 @@ contract Voting is Ownable {
 
     uint[] private winningProposalIds;
     WorkflowStatus public workflowStatus;
-    mapping(address => Voter) private voters;
+    mapping(address => Voter) public voters;
     uint private numberVoters;
     uint private totalVotes;
     Proposal[] private proposals;
@@ -59,6 +59,7 @@ contract Voting is Ownable {
      * @notice Registers a new voter.
      * @dev
      * - Can only be called by the contract owner.
+     * - The voter has to be a real address.
      * - The workflow status must be `RegisteringVoters`.
      * - The voter must not already be registered.
      * @param _voter Address of the voter to be registered.
@@ -213,7 +214,7 @@ contract Voting is Ownable {
     }
 
     /**
-     * @notice Tally votes and determine the winning proposal.
+     * @notice Tally votes and determine the winning proposal(s).
      * @dev
      * - Only the owner can calculate the results of the vote.
      * - The workflow status must be 'VotingSessionEnded'.
@@ -259,5 +260,55 @@ contract Voting is Ownable {
             'Workflow must be VotesTallied'
         );
         return winningProposalIds;
+    }
+
+    /**
+     * @notice Retrieves the description of a proposal.
+     * @dev
+     * - Ensures the _proposalId is valid
+     * @param _proposalId The ID of the proposal.
+     * @return The description of the selected proposal.
+     */
+    function getProposalDescription(
+        uint _proposalId
+    ) external view returns (string memory) {
+        require(_proposalId < proposals.length, 'Invalid proposal');
+        return proposals[_proposalId].description;
+    }
+
+    /**
+     * @notice Checks if a proposal has received any votes.
+     * @dev
+     * - The workflow status must be 'VotingSessionEnded'.
+     * - Ensures the _proposalId is valid
+     * @param _proposalId The ID of the proposal.
+     * @return True if the proposal has received votes.
+     */
+    function proposalHasBeenVoted(
+        uint _proposalId
+    ) external view returns (bool) {
+        require(
+            workflowStatus == WorkflowStatus.VotingSessionEnded,
+            'Workflow must be VotingSessionEnded'
+        );
+        require(_proposalId < proposals.length, 'Invalid proposal');
+        return proposals[_proposalId].voteCount > 0;
+    }
+
+    /**
+     * @notice Returns the information from a Voter
+     * @dev
+     * - The voter has to be a real address.
+     * - The voter has to be registered.
+     * @return a tuple (isRegistered, hasVoted and the votedProposalId)
+     */
+    function getVoter(address _voter) external view returns (bool, bool, uint) {
+        require(address(0) != _voter, "Voter can't be the zero address");
+        require(voters[_voter].isRegistered, 'Voter not found');
+        return (
+            voters[_voter].isRegistered,
+            voters[_voter].hasVoted,
+            voters[_voter].votedProposalId
+        );
     }
 }
