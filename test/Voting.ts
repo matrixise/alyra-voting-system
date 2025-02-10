@@ -115,6 +115,15 @@ describe('Voting System', function () {
       ).to.be.rejectedWith("The description can't be empty");
     });
 
+    it("Register a proposal", async function () {
+      await voting.write.startProposalsRegistration();
+      await voting.write.registerProposal(['Proposal 1'], { account: addr1.account });
+
+      const events = await voting.getEvents.ProposalRegistered();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.proposalId).to.equal(0n);
+    })
+
     it("Can't register an existing proposal", async function () {
       await voting.write.startProposalsRegistration();
       await voting.write.registerProposal(['Proposal 1'], {
