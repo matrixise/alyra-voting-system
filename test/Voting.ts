@@ -213,8 +213,16 @@ describe('Voting System', function () {
       );
     });
 
+    it('At least one vote', async function () {
+      await voting.write.startVotingSession();
+      await expect(voting.write.endVotingSession()).to.be.rejectedWith(
+        'At least one vote',
+      );
+    });
+
     it('Get Event for endVotingSession', async function () {
       await voting.write.startVotingSession();
+      await voting.write.vote([0], { account: addr1.account });
       await voting.write.endVotingSession();
 
       const events = await voting.getEvents.WorkflowStatusChange();

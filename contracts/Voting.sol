@@ -33,6 +33,7 @@ contract Voting is Ownable {
     WorkflowStatus public workflowStatus;
     mapping(address => Voter) private voters;
     uint private numberVoters;
+    uint private totalVotes;
     Proposal[] private proposals;
     mapping(string => bool) private existingProposals;
 
@@ -185,6 +186,7 @@ contract Voting is Ownable {
         voters[msg.sender].hasVoted = true;
         voters[msg.sender].votedProposalId = _proposalId;
         proposals[_proposalId].voteCount++;
+        totalVotes++;
 
         emit Voted(msg.sender, _proposalId);
     }
@@ -201,6 +203,7 @@ contract Voting is Ownable {
             workflowStatus == WorkflowStatus.VotingSessionStarted,
             'Workflow must be VotingSessionStarted'
         );
+        require(totalVotes > 0, 'At least one vote');
 
         workflowStatus = WorkflowStatus.VotingSessionEnded;
         emit WorkflowStatusChange(
@@ -217,7 +220,6 @@ contract Voting is Ownable {
      * - Emits a {WorkflowStatusChange} event.
      */
     function tallyVotes() external onlyOwner {
-        // TODO: Handle when there is no votes...
         require(
             workflowStatus == WorkflowStatus.VotingSessionEnded,
             'Workflow must be VotingSessionEnded'
