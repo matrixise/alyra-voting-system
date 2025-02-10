@@ -45,6 +45,7 @@ describe('Voting System', function () {
         tallyVotes: () => any;
         disableProposal: (p: any[]) => any;
         enableProposal: (p: any[]) => any;
+        reset: () => void;
       };
       getEvents: {
         WorkflowStatusChange: () => any;
@@ -53,6 +54,7 @@ describe('Voting System', function () {
         ProposalDisabled: () => any;
         VoterRegistered: () => any;
         VoterUnregistered: () => any;
+        Reset: () => any;
       };
     },
     owner: { account: { address: any } },
@@ -406,6 +408,30 @@ describe('Voting System', function () {
       const winners = await voting.read.getWinnerProposalsIds();
       expect(winners).to.have.lengthOf(2);
       // expect(winners[0]).to.equal(1n);
+    });
+
+    it('Reset', async function () {
+      await voting.write.startVotingSession();
+      await voting.write.vote([0], { account: addr1.account });
+      await voting.write.vote([1], { account: addr2.account });
+      await voting.write.endVotingSession();
+      await voting.write.tallyVotes();
+
+      await voting.write.reset([true]);
+
+      let events = await voting.getEvents.WorkflowStatusChange();
+
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.previousStatus).to.equal(
+        WorkflowStatus.VotesTallied,
+      );
+      expect(events[0].args.newStatus).to.equal(
+        WorkflowStatus.RegisteringVoters,
+      );
+
+      events = await voting.getEvents.Reset();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.hard).to.equal(true);
     });
   });
 

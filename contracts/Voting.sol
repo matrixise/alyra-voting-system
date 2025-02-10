@@ -33,7 +33,7 @@ contract Voting is Ownable {
     uint[] private winningProposalIds;
     WorkflowStatus public workflowStatus;
     mapping(address => Voter) public voters;
-    uint private numberVoters;
+    address[] votersAddresses;
     uint private totalVotes;
     Proposal[] private proposals;
     mapping(string => bool) private existingProposals;
@@ -48,6 +48,7 @@ contract Voting is Ownable {
     event ProposalDisabled(uint proposalId);
     event ProposalEnabled(uint proposalId);
     event Voted(address voter, uint proposalId);
+    event Reset(bool hard);
 
     modifier onlyVoter() {
         require(voters[msg.sender].isRegistered, 'Voter is not registered');
@@ -76,7 +77,7 @@ contract Voting is Ownable {
         );
         require(!voters[_voter].isRegistered, 'Voter already registered');
         voters[_voter].isRegistered = true;
-        numberVoters++;
+        votersAddresses.push(_voter);
         emit VoterRegistered(_voter);
     }
 
@@ -99,7 +100,15 @@ contract Voting is Ownable {
 
         delete voters[_voter];
 
-        numberVoters--;
+        for (uint i = 0; i < votersAddresses.length; i++) {
+            if (votersAddresses[i] == _voter) {
+                votersAddresses[i] = votersAddresses[
+                    votersAddresses.length - 1
+                ];
+                votersAddresses.pop();
+                break;
+            }
+        }
 
         emit VoterUnregistered(_voter);
     }
@@ -116,7 +125,7 @@ contract Voting is Ownable {
             workflowStatus == WorkflowStatus.RegisteringVoters,
             'Workflow must be RegisteringVoters'
         );
-        require(numberVoters > 0, 'At least one voter');
+        require(votersAddresses.length > 0, 'At least one voter');
 
         workflowStatus = WorkflowStatus.ProposalsRegistrationStarted;
         emit WorkflowStatusChange(
@@ -404,5 +413,45 @@ contract Voting is Ownable {
             voters[_voter].hasVoted,
             voters[_voter].votedProposalId
         );
+    }
+
+    /**
+     * @notice Resets the voting process.
+     * @dev
+     * - Can only be called by the contract owner.
+     * - The workflow status must be `VotesTallied`.
+     * - `_hard == true` will reset voters and proposals, `_hard == false` resets only proposals.
+     * - Emits {WorkflowStatusChange} and {Reset} events.
+     * @param _hard If true, resets voters and proposals; if false, only resets proposals.
+     */
+    function reset(bool _hard) external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.VotesTallied,
+            'Workflow must be VotesTallied'
+        );
+
+        totalVotes = 0;
+
+        // hardly or softly, we drop the proposals
+        for (uint i = 0; i < proposals.length; i++) {
+            delete existingProposals[proposals[i].description];
+        }
+
+        delete proposals;
+        delete winningProposalIds;
+
+        // Reset the proposals
+        if (_hard) {
+            // Drop the voters
+            for (uint i = 0; i < votersAddresses.length; i++) {
+                delete voters[votersAddresses[i]];
+            }
+            delete votersAddresses;
+        }
+
+        // Reset
+        workflowStatus = WorkflowStatus.RegisteringVoters;
+        emit WorkflowStatusChange(WorkflowStatus.VotesTallied, workflowStatus);
+        emit Reset(_hard);
     }
 }
