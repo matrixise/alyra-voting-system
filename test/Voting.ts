@@ -28,6 +28,7 @@ describe('Voting System', function () {
         getWinnerProposalsIds: () => any;
         getProposalDescription: (numbers: number[]) => any;
         proposalHasBeenVoted: (numbers: number[]) => any;
+        isProposalActive: (numbers: number[]) => any;
       };
       write: {
         startProposalsRegistration: () => any;
@@ -35,17 +36,25 @@ describe('Voting System', function () {
         startVotingSession: () => any;
         endVotingSession: () => any;
         registerVoter: (p: any[]) => any;
+        unregisterVoter: (p: any[]) => any;
         vote: (numbers: number[], p: { account: { address: any } }) => any;
         registerProposal: (
           strings: string[],
           p: { account: { address: any } },
         ) => number;
         tallyVotes: () => any;
+        disableProposal: (p: any[]) => any;
+        enableProposal: (p: any[]) => any;
+        reset: () => void;
       };
       getEvents: {
         WorkflowStatusChange: () => any;
         ProposalRegistered: () => any;
+        ProposalEnabled: () => any;
+        ProposalDisabled: () => any;
         VoterRegistered: () => any;
+        VoterUnregistered: () => any;
+        Reset: () => any;
       };
     },
     owner: { account: { address: any } },
@@ -128,6 +137,41 @@ describe('Voting System', function () {
       expect(events[0].args.proposalId).to.equal(0n);
     });
 
+    it('Disable a proposal', async function () {
+      await voting.write.startProposalsRegistration();
+      await voting.write.registerProposal(['Proposal 1'], {
+        account: addr1.account,
+      });
+      let events = await voting.getEvents.ProposalRegistered();
+      expect(events).to.have.lengthOf(1);
+      const proposalId = events[0].args.proposalId;
+
+      await voting.write.disableProposal([proposalId]);
+      events = await voting.getEvents.ProposalDisabled();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.proposalId).to.equal(proposalId);
+
+      const isActive = await voting.read.isProposalActive([proposalId]);
+      expect(isActive).to.equal(false);
+    });
+
+    it('Enable a proposal', async function () {
+      await voting.write.startProposalsRegistration();
+      await voting.write.registerProposal(['Proposal 1'], {
+        account: addr1.account,
+      });
+      let events = await voting.getEvents.ProposalRegistered();
+      const proposalId = events[0].args.proposalId;
+      await voting.write.disableProposal([proposalId]);
+
+      let isActive = await voting.read.isProposalActive([proposalId]);
+      expect(isActive).to.equal(false);
+
+      await voting.write.enableProposal([proposalId]);
+      isActive = await voting.read.isProposalActive([proposalId]);
+      expect(isActive).to.equal(true);
+    });
+
     it('Read the description of a proposal', async function () {
       await voting.write.startProposalsRegistration();
       await voting.write.registerProposal(['Proposal 1'], {
@@ -203,6 +247,27 @@ describe('Voting System', function () {
       );
       expect(events[0].args.newStatus).to.equal(
         WorkflowStatus.ProposalsRegistrationEnd,
+      );
+    });
+  });
+
+  describe('Voters', function () {
+    it('Register a voter', async function () {
+      await voting.write.registerVoter([addr1.account.address]);
+      const events = await voting.getEvents.VoterRegistered();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.voterAddress).to.equal(
+        getAddress(addr1.account.address),
+      );
+    });
+
+    it('Unregister a voter', async function () {
+      await voting.write.registerVoter([addr1.account.address]);
+      await voting.write.unregisterVoter([addr1.account.address]);
+      const events = await voting.getEvents.VoterUnregistered();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.voterAddress).to.equal(
+        getAddress(addr1.account.address),
       );
     });
   });
@@ -344,18 +409,33 @@ describe('Voting System', function () {
       expect(winners).to.have.lengthOf(2);
       // expect(winners[0]).to.equal(1n);
     });
+
+    it('Reset', async function () {
+      await voting.write.startVotingSession();
+      await voting.write.vote([0], { account: addr1.account });
+      await voting.write.vote([1], { account: addr2.account });
+      await voting.write.endVotingSession();
+      await voting.write.tallyVotes();
+
+      await voting.write.reset([true]);
+
+      let events = await voting.getEvents.WorkflowStatusChange();
+
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.previousStatus).to.equal(
+        WorkflowStatus.VotesTallied,
+      );
+      expect(events[0].args.newStatus).to.equal(
+        WorkflowStatus.RegisteringVoters,
+      );
+
+      events = await voting.getEvents.Reset();
+      expect(events).to.have.lengthOf(1);
+      expect(events[0].args.hard).to.equal(true);
+    });
   });
 
   describe('Events', function () {
-    it('Should emit an event on VoterRegistered', async function () {
-      await voting.write.registerVoter([addr1.account.address]);
-      const events = await voting.getEvents.VoterRegistered();
-      expect(events).to.have.lengthOf(1);
-      expect(events[0].args.voterAddress).to.equal(
-        getAddress(addr1.account.address),
-      );
-    });
-
     it('Should emit an event on WorkflowStatusChange', async function () {
       await voting.write.registerVoter([addr1.account.address]);
       await voting.write.startProposalsRegistration();
