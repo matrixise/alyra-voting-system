@@ -32,6 +32,7 @@ contract Voting is Ownable {
     uint[] private winningProposalIds;
     WorkflowStatus public workflowStatus;
     mapping(address => Voter) private voters;
+    uint private numberVoters;
     Proposal[] private proposals;
     mapping(string => bool) private existingProposals;
 
@@ -69,6 +70,7 @@ contract Voting is Ownable {
         );
         require(!voters[_voter].isRegistered, 'Voter already registered');
         voters[_voter].isRegistered = true;
+        numberVoters++;
         emit VoterRegistered(_voter);
     }
 
@@ -84,6 +86,8 @@ contract Voting is Ownable {
             workflowStatus == WorkflowStatus.RegisteringVoters,
             'Workflow must be RegisteringVoters'
         );
+        require(numberVoters > 0, 'At least one voter');
+
         workflowStatus = WorkflowStatus.ProposalsRegistrationStarted;
         emit WorkflowStatusChange(
             WorkflowStatus.RegisteringVoters,

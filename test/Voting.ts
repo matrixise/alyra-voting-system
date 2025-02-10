@@ -75,6 +75,12 @@ describe('Voting System', function () {
     });
   });
 
+  it('At least one voter to vote', async function () {
+    await expect(voting.write.startProposalsRegistration()).to.be.rejectedWith(
+      'At least one voter',
+    );
+  });
+
   describe('Proposal Registration', function () {
     beforeEach(async function () {
       await voting.write.registerVoter([addr1.account.address]);
