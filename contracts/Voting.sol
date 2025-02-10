@@ -146,7 +146,7 @@ contract Voting is Ownable {
     /**
      * @notice Starts the voting session.
      * @dev
-     * - Only the owner can register proposals.
+     * - Only the owner can start the voting session.
      * - The workflow status must be 'ProposalsRegistrationEnd'.
      * - Emits a {WorkflowStatusChange} event.
      */
@@ -192,7 +192,7 @@ contract Voting is Ownable {
     /**
      * @notice Ends the voting session.
      * @dev
-     * - Only the owner can register proposals.
+     * - Only the owner can stop the voting session.
      * - The workflow status must be 'VotingSessionStarted'.
      * - Emits a {WorkflowStatusChange} event.
      */
@@ -212,7 +212,7 @@ contract Voting is Ownable {
     /**
      * @notice Tally votes and determine the winning proposal.
      * @dev
-     * - Only the owner can register proposals.
+     * - Only the owner can calculate the results of the vote.
      * - The workflow status must be 'VotingSessionEnded'.
      * - Emits a {WorkflowStatusChange} event.
      */
