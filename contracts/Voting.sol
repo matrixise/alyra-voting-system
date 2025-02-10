@@ -62,6 +62,7 @@ contract Voting is Ownable {
      * @param _voter Address of the voter to be registered.
      */
     function registerVoter(address _voter) external onlyOwner {
+        require(address(0) != _voter, "Voter can't be the zero address");
         require(
             workflowStatus == WorkflowStatus.RegisteringVoters,
             'Workflow must be RegisteringVoters'

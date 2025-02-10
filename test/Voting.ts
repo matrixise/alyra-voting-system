@@ -310,6 +310,14 @@ describe('Voting System', function () {
   });
 
   describe('Errors', function () {
+    it("A voter can't be the zero address", async function () {
+      const zeroAddress = getAddress(
+        '0x0000000000000000000000000000000000000000',
+      );
+      await expect(
+        voting.write.registerVoter([zeroAddress]),
+      ).to.be.rejectedWith("Voter can't be the zero address");
+    });
     it('A voter is already registered', async function () {
       // First call, new instance of the SC
       // Register the voter
