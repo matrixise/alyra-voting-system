@@ -18,6 +18,7 @@ contract Voting is Ownable {
     struct Proposal {
         string description;
         uint voteCount;
+        bool isActive;
     }
 
     enum WorkflowStatus {
@@ -38,11 +39,14 @@ contract Voting is Ownable {
     mapping(string => bool) private existingProposals;
 
     event VoterRegistered(address voterAddress);
+    event VoterUnregistered(address voterAddress);
     event WorkflowStatusChange(
         WorkflowStatus previousStatus,
         WorkflowStatus newStatus
     );
     event ProposalRegistered(uint proposalId);
+    event ProposalDisabled(uint proposalId);
+    event ProposalEnabled(uint proposalId);
     event Voted(address voter, uint proposalId);
 
     modifier onlyVoter() {
@@ -74,6 +78,30 @@ contract Voting is Ownable {
         voters[_voter].isRegistered = true;
         numberVoters++;
         emit VoterRegistered(_voter);
+    }
+
+    /**
+     * @notice Unregisters a voter.
+     * @dev
+     * - Can only be called by the contract owner.
+     * - The workflow status must be `RegisteringVoters`.
+     * - The voter must already be registered.
+     * - Emits a {VoterUnregistered} event.
+     * @param _voter Address of the voter to be unregistered.
+     */
+    function unregisterVoter(address _voter) external onlyOwner {
+        require(_voter != address(0), "Voter can't be the zero address");
+        require(
+            workflowStatus == WorkflowStatus.RegisteringVoters,
+            'Workflow must be RegisteringVoters'
+        );
+        require(voters[_voter].isRegistered, 'Voter not registered');
+
+        delete voters[_voter];
+
+        numberVoters--;
+
+        emit VoterUnregistered(_voter);
     }
 
     /**
@@ -118,11 +146,77 @@ contract Voting is Ownable {
         );
         require(!existingProposals[_description], 'Proposal already exists');
 
-        proposals.push(Proposal(_description, 0));
+        proposals.push(Proposal(_description, 0, true));
+
+        // FIXME: Avoid the duplicated description
         existingProposals[_description] = true;
+
         uint proposalId = proposals.length - 1;
 
         emit ProposalRegistered(proposalId);
+    }
+
+    /**
+     * @notice Disables a proposal without removing it from the list.
+     * @dev
+     * - Can only be called by the contract owner.
+     * - The workflow status must be `ProposalsRegistrationStarted`.
+     * - The proposal must exist and be active.
+     * - Marks the proposal as inactive instead of deleting it.
+     * - Emits a {ProposalDisabled} event.
+     * @param _proposalId The ID of the proposal to be disabled.
+     */
+    function disableProposal(uint _proposalId) external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
+            'Workflow must be ProposalsRegistrationStarted'
+        );
+        require(_proposalId < proposals.length, 'Invalid proposal');
+        require(
+            proposals[_proposalId].isActive,
+            'Proposal is already disabled'
+        );
+
+        proposals[_proposalId].isActive = false;
+
+        emit ProposalDisabled(_proposalId);
+    }
+
+    /**
+     * @notice Checks if a proposal is active.
+     * @dev A proposal is considered active if its `isActive` field is true.
+     * @param _proposalId The ID of the proposal.
+     * @return True if the proposal is active, otherwise false.
+     */
+    function isProposalActive(uint _proposalId) external view returns (bool) {
+        require(_proposalId < proposals.length, 'Invalid proposal');
+        return proposals[_proposalId].isActive;
+    }
+
+    /**
+     * @notice Enables a previously disabled proposal.
+     * @dev
+     * - Can only be called by the contract owner.
+     * - The workflow status must be `ProposalsRegistrationStarted`.
+     * - The proposal must exist and be disabled.
+     * - Marks the proposal as active again.
+     * - Emits a {ProposalEnabled} event.
+     * @param _proposalId The ID of the proposal to be enabled.
+     */
+    function enableProposal(uint _proposalId) external onlyOwner {
+        require(
+            workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
+            'Workflow must be ProposalsRegistrationStarted'
+        );
+        require(_proposalId < proposals.length, 'Invalid proposal');
+        require(
+            !proposals[_proposalId].isActive,
+            'Proposal is already enabled'
+        );
+
+        proposals[_proposalId].isActive = true;
+
+        emit ProposalEnabled(_proposalId);
     }
 
     /**
