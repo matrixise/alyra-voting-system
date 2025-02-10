@@ -259,7 +259,7 @@ describe('Voting System', function () {
 
     it('Voter has already voted', async function () {
       await voting.write.startVotingSession();
-      voting.write.vote([0], { account: addr1.account });
+      await voting.write.vote([0], { account: addr1.account });
       const voteCall = voting.write.vote([0], { account: addr1.account });
       await expect(voteCall).to.be.rejectedWith('Voter has already voted');
     });
